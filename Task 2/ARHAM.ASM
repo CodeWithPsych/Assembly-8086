@@ -1,0 +1,339 @@
+.MODEL SMALL
+.STACK 100H
+.DATA
+    LINE DB 0AH, 0DH, '$'
+    MSG1 DB 'Provide YOUR NAME: $'
+    MSG2 DB 'Convert: $'
+    MSG3 DB 'VOWELS Part :$'
+    MSG4 DB 'CONSONANTS Part :$'
+    MSG5 DB 'BINARY Part :$'
+    MSG6 DB 'HEXA PART :$' 
+    MSG7 DB 'REVERSE PART:$'
+    MSG8 DB 'REMOVE OF VOWEL :$'
+    MSG9 DB 'REMOVE OF CONSONANTS :$'
+   
+    STR1 DB 100 DUP('$')
+    STR2 DB 150 DUP('$')
+    STR2_HEX DB 150 DUP('$')  
+    REMOVE_vowel1 DB 100 DUP('$')
+    REMOVE_con1 DB 100 DUP('$')
+    VOWEL1 DB 30h
+    CONSONANT1 DB 30h
+    VAR1 DB ?
+    
+.CODE
+    MAIN PROC
+    mov ax, @data
+    mov ds, ax
+
+    CALL INPUTNAME
+    CALL CASECONVERSION
+    CALL VOWELSCONSONANT
+    CALL BINARYCONVERSION
+    CALL HEXCONVERSION
+    CALL REVERSE
+    CALL WITHOUTVC
+
+    MOV AH, 4Ch
+    INT 21h 
+    MAIN ENDP
+    
+
+INPUTNAME PROC
+    PUSH AX
+    MOV AH, 09
+    LEA DX, MSG1
+    INT 21H
+    lea dx, LINE
+    int 21h
+    mov ah, 01
+    lea si, STR1
+    ENTRY:
+    int 21h
+    mov dl, al
+    MOV [SI], dl
+    INC SI
+    CMP AL, '$'
+    JNZ ENTRY
+    POP AX
+RET
+INPUTNAME ENDP
+
+CASECONVERSION PROC
+    LEA SI, STR1
+    CHANGE_CASE:
+    MOV AL, [SI]
+    CMP AL, '$' 
+    je INSPECT_
+
+    xor ah, ah  
+    cmp al, 'A'
+    jl SMALL_CASE
+    cmp al, 'Z'
+    jg SMALL_CASE
+    add al, 32  
+    jmp REVISE_STRING
+   SMALL_CASE:
+    cmp al, 'a'
+    jl UPPER_CASE
+    cmp al, 'z'
+    jg UPPER_CASE
+    sub al, 32  
+    jmp REVISE_STRING
+    UPPER_CASE:
+    jmp REVISE_STRING
+    REVISE_STRING:
+    mov [SI], al
+    inc si
+    jmp CHANGE_CASE
+    INSPECT_:
+RET
+CASECONVERSION ENDP
+
+VOWELSCONSONANT PROC
+    LEA SI, STR1
+    VOWEL:
+    MOV AL, [SI]
+    CMP AL, '$'
+    JE EXIT
+    CMP AL, 'a'
+    JE VOL
+    CMP AL, 'e'
+    JE VOL
+    CMP AL, 'i'
+    JE VOL
+    CMP AL, 'o'
+    JE VOL
+    CMP AL, 'u'
+    JE VOL
+    CMP AL, 'A'
+    JE VOL
+    CMP AL, 'E'
+    JE VOL
+    CMP AL, 'I'
+    JE VOL
+    CMP AL, 'O'
+    JE VOL
+    CMP AL, 'U'
+    JE VOL
+    jmp INSPECT_CON
+   INC SI
+   JMP VOWEL
+   VOL:
+    ADD VOWEL1, 01H
+    INC SI
+    JMP VOWEL
+    INSPECT_CON:
+    ADD CONSONANT1, 01H
+    INC SI
+    JMP VOWEL
+    EXIT:
+    MOV AH, 09
+    LEA DX, LINE
+    INT 21h
+    MOV AH, 09
+    LEA DX, MSG2
+    INT 21H
+    lea dx, STR1
+    int 21h
+    lea dx, LINE
+    int 21h
+    MOV AH, 09
+    LEA DX, MSG3
+    INT 21H
+    mov ah, 02
+    mov dl, VOWEL1
+    int 21h
+    MOV AH, 09
+    LEA DX, LINE
+    INT 21H
+    MOV AH, 09
+    LEA DX, MSG4
+    INT 21H
+    mov ah, 02
+    mov dl, CONSONANT1
+    int 21h
+    MOV AH, 09
+    LEA DX, LINE
+    INT 21H
+    MOV AH, 09
+    LEA DX, MSG5
+    INT 21H
+RET
+VOWELSCONSONANT ENDP
+
+BINARYCONVERSION PROC
+    LEA SI, STR1
+    LEA DI, STR2
+    CHANGE_BINARY:
+    MOV AL, [SI]
+    CMP AL, '$'             
+    JE OUT_BINARY          
+    xor ch, ch
+    mov cl, 08
+    mov VAR1, AL         
+    BINARY_LOOP:
+    ROL VAR1, 1
+    JC DISPLAY_1
+    MOV BL, [DI]
+    MOV BL, '0'
+    MOV [DI], BL
+    INC DI
+    DEC CL
+    JZ OUTSIDE_BINARY
+    JMP BINARY_LOOP
+    DISPLAY_1:
+    MOV BL, [DI]
+    MOV BL, '1'
+    MOV [DI], BL
+    INC DI
+    DEC CL
+    JZ OUTSIDE_BINARY
+    JMP BINARY_LOOP
+    OUTSIDE_BINARY:
+    INC SI
+    JMP CHANGE_BINARY
+   OUT_BINARY:
+    MOV AH, 09
+    LEA DX, STR2
+    INT 21H
+    LEA DX, LINE
+    INT 21H
+RET
+BINARYCONVERSION ENDP
+
+HEXCONVERSION PROC
+    CONVERT_BINARY_TO_HEX:
+    LEA SI, STR2      
+    LEA DI, STR2_HEX    
+    NEXT_HEX_DIGIT:
+    XOR BL, BL         
+    MOV CL, 4           
+   CONVERT_4BITS_TO_HEX:
+    MOV AL, [SI]       
+    AND AL, 0Fh         
+    SHL BL, 1           
+    OR BL, AL          
+    INC SI              
+    DEC CL            
+    JNZ CONVERT_4BITS_TO_HEX 
+    CMP BL, 10
+    JB _NUMBER    
+    MOV AL, 'A'      
+    SUB AL, 10       
+    ADD BL, AL      
+    JMP STORE_HEX       
+    _NUMBER:
+    ADD BL, '0'        
+   STORE_HEX:
+    MOV [DI], BL        
+    INC DI             
+    MOV AL, [SI]        
+    CMP AL, '$'         
+    JNE NEXT_HEX_DIGIT  
+   OUT_CONVERSION:
+   MOV AL, '$'        
+   MOV [DI], AL 
+    MOV AH, 09
+    LEA DX, MSG6
+    INT 21H          
+    LEA DX, STR2_HEX
+    INT 21H  
+RET
+HEXCONVERSION ENDP
+
+REVERSE PROC                      
+    LEA DI, STR1          
+    MOV CX, 0             
+    FIND_STRING:
+    MOV AL, [DI]      
+    CMP AL, '$'      
+    JE CALCULATE_END  
+    INC DI            
+    INC CX            
+    JMP FIND_STRING
+    CALCULATE_END:
+    DEC DI             
+    LEA SI, STR1          
+    REVERSE_STRING:
+    CMP SI, DI        
+    JGE EXIT_REVERSE   
+    MOV AL, [SI]      
+    MOV BL, [DI]     
+    MOV [SI], BL      
+    MOV [DI], AL
+    INC SI            
+    DEC DI            
+    JMP REVERSE_STRING
+    EXIT_REVERSE:
+    MOV AH, 09
+    LEA DX,LINE
+    INT 21H
+    LEA DX, MSG7
+    INT 21H
+    LEA DX, STR1
+    INT 21H
+RET 
+REVERSE ENDP
+
+WITHOUTVC PROC
+    LEA SI,STR1
+    LEA DI,REMOVE_vowel1
+    LEA BX,REMOVE_con1
+    REMOVE_VOWEL:
+    MOV AL,[SI]
+    CMP AL,'$'            
+    JE END_REMOVE      
+    CMP AL,'a'           
+    JE remove_consanant
+    CMP AL,'e'
+    JE remove_consanant
+    CMP AL,'i'
+    JE remove_consanant
+    CMP AL,'o'
+    JE remove_consanant
+    CMP AL,'u'
+    JE remove_consanant
+    CMP AL,'A'          
+    JE remove_consanant
+    CMP AL,'E'
+    JE remove_consanant
+    CMP AL,'I'
+    JE remove_consanant
+    CMP AL,'O'
+    JE remove_consanant
+    CMP AL,'U'
+    JE remove_consanant
+    CMP AL,' '
+    JE NEXT
+    mov [DI],AL
+    INC DI
+    JMP NEXT
+    remove_consanant:
+    CMP AL,' '
+    JE NEXT
+    mov [BX],AL
+    INC BX
+    JMP NEXT
+    NEXT:
+    INC SI
+    JMP REMOVE_VOWEL
+    END_remove:
+    MOV AH,09
+    LEA DX,LINE
+    INT 21H
+    LEA DX,MSG8
+    INT 21H
+    LEA DX,REMOVE_vowel1
+    INT 21H
+    lea dx,line
+    INT 21H
+    LEA DX,MSG9
+    INT 21H
+    LEA DX,REMOVE_con1
+    INT 21H
+    lea dx,line
+    INT 21H
+RET
+WITHOUTVC ENDP
+END MAIN
